@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fMRI Preprocessing &amp; Analysis — MMSS Day 3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0d;--card:#181818;--border:#272727;--text:#ddd;--muted:#666;
+  --accent:#4a9eff;--green:#56c96e;--orange:#ff9800;--red:#e06060;
+}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;
+     font-size:15px;line-height:1.65;height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ────────────────────────────────────────────────── */
+header{background:#111;border-bottom:1px solid var(--border);padding:10px 22px;
+       display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+header h1{font-size:15px;font-weight:600;color:#fff;letter-spacing:.01em}
+#sbar{display:flex;gap:20px;font-size:12px}
+.si{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:#3a3a3a;flex-shrink:0;transition:background .3s}
+.dot.loading{background:var(--orange)}.dot.ready{background:var(--green)}.dot.error{background:var(--red)}
+
+/* ── Tab nav ───────────────────────────────────────────────── */
+nav{background:#111;border-bottom:1px solid var(--border);display:flex;
+    gap:2px;padding:0 16px;flex-shrink:0;overflow-x:auto}
+.tb{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
+    padding:10px 16px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
+    transition:color .15s,border-color .15s;border-radius:0}
+.tb:hover{color:var(--text)}
+.tb.active{color:#fff;border-bottom-color:var(--accent)}
+nav button.tb:disabled{background:none;color:#2d2d2d;cursor:not-allowed;border-bottom-color:transparent}
+nav button.tb:disabled:hover{color:#2d2d2d}
+
+/* ── Main scroll area ──────────────────────────────────────── */
+main{flex:1;overflow-y:auto}
+.tab{display:none;max-width:860px;margin:0 auto;padding:22px 18px 60px}
+#tab-0{max-width:1120px}
+.tab.active{display:block}
+
+/* ── Upload ────────────────────────────────────────────────── */
+.upload-card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+             padding:18px 20px;margin-bottom:22px}
+.upload-card h2{font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+.drop-zone{border:2px dashed #303030;border-radius:8px;padding:18px;text-align:center;
+           cursor:pointer;transition:border-color .2s;color:var(--muted);font-size:14px}
+.drop-zone:hover,.drop-zone.over{border-color:var(--accent);color:var(--text)}
+.drop-zone input{display:none}
+.drop-zone code{background:#222;padding:2px 5px;border-radius:3px;font-size:11px;color:#888}
+.file-info{margin-top:8px;font-size:12px;color:var(--muted)}
+.file-info.ok{color:var(--green)}
+
+/* ── Viewer ────────────────────────────────────────────────── */
+.viewer-card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+             padding:18px 20px}
+.viewer-card h2{font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
+.vp{display:flex;flex-direction:column;gap:8px}
+.vp-label{font-size:11px;font-weight:600;text-transform:uppercase;
+          letter-spacing:.06em;color:var(--muted)}
+.vp-orients{display:flex;gap:5px}
+.vp-wrap{background:#000;border-radius:8px;display:flex;justify-content:center;
+         align-items:center;padding:12px;min-height:180px}
+.vp-wrap canvas{max-width:100%;max-height:260px;display:block;image-rendering:auto}
+.slice-ctrl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.slice-ctrl input[type=range]{flex:1;accent-color:var(--accent)}
+.vmeta{font-size:11px;color:#444;text-align:center}
+
+/* ── Stage cards ───────────────────────────────────────────── */
+.stage{background:var(--card);border:1px solid var(--border);border-radius:10px;
+       margin-bottom:22px;overflow:hidden}
+.shdr{display:flex;align-items:center;gap:12px;padding:13px 20px;
+      border-bottom:1px solid var(--border);background:#141414}
+.snum{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;
+      font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.shdr h2{font-size:15px;font-weight:600;color:#fff}
+.sbody{padding:20px}
+
+/* ── Problem / fix ─────────────────────────────────────────── */
+.prob{background:#1b1212;border:1px solid #3a2020;border-radius:8px;
+      padding:12px 15px;margin-bottom:14px}
+.prob h3{font-size:11px;font-weight:700;text-transform:uppercase;
+         letter-spacing:.07em;color:var(--red);margin-bottom:5px}
+.prob p{color:#bbb;font-size:14px}
+.fix{background:#121b12;border:1px solid #203a20;border-radius:8px;
+     padding:12px 15px;margin-bottom:18px}
+.fix h3{font-size:11px;font-weight:700;text-transform:uppercase;
+        letter-spacing:.07em;color:var(--green);margin-bottom:5px}
+.fix p{color:#bbb;font-size:14px}
+
+/* ── Controls ──────────────────────────────────────────────── */
+.ctrls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;margin-bottom:16px}
+.cg{display:flex;flex-direction:column;gap:4px}
+.cg label{font-size:12px;color:var(--muted);font-weight:500}
+.cg input[type=number]{background:#222;border:1px solid #333;border-radius:6px;
+                        color:#fff;padding:7px 10px;font-size:14px;width:140px}
+.cg select{background:#222;border:1px solid #333;border-radius:6px;
+           color:#fff;padding:7px 10px;font-size:14px;cursor:pointer}
+.hint{font-size:11px;color:#484848;margin-top:2px}
+.radio-grp{display:flex;flex-direction:column;gap:5px}
+.radio-grp label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;
+       padding:8px 18px;font-size:14px;font-weight:500;cursor:pointer;
+       transition:opacity .15s;white-space:nowrap}
+button:hover:not(:disabled){opacity:.82}
+button:disabled{background:#252525;color:#484848;cursor:not-allowed}
+.bg{background:#222;color:var(--muted);border:1px solid #333}
+.bg.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bg:hover:not(:disabled):not(.active){color:var(--text)}
+
+/* ── Output ────────────────────────────────────────────────── */
+.out{min-height:80px;display:flex;justify-content:center;align-items:center;flex-direction:column}
+.out img{max-width:100%;border-radius:6px}
+.ph{color:var(--muted);font-size:13px;text-align:center;padding:24px}
+.run{color:var(--orange);font-size:13px}
+.er{color:var(--red);font-size:12px;padding:10px;background:#1c1010;border-radius:6px;
+    width:100%;word-break:break-all}
+
+/* ── Events table ──────────────────────────────────────────── */
+.ev-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.ev-tbl th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+           color:var(--muted);padding:6px 10px;border-bottom:1px solid #252525;text-align:left}
+.ev-tbl td{padding:3px 6px;border-bottom:1px solid #1c1c1c;vertical-align:middle}
+.ev-tbl input[type=number]{background:#1e1e1e;border:1px solid #2e2e2e;border-radius:4px;
+                            color:#ddd;padding:4px 7px;font-size:13px;width:72px}
+.ev-tbl select{background:#1e1e1e;border:1px solid #2e2e2e;border-radius:4px;
+               color:#ddd;padding:4px 7px;font-size:13px}
+
+/* ── Events timeline ───────────────────────────────────────── */
+#ev-canvas{width:100%;border-radius:6px;display:block}
+
+/* ── Need-file notice ──────────────────────────────────────── */
+.need-file{background:#13131e;border:1px dashed #334;border-radius:8px;padding:14px;
+           text-align:center;color:var(--muted);font-size:14px;margin-bottom:14px;display:none}
+
+/* ── Code blocks ───────────────────────────────────────────── */
+details.code{margin-top:16px;border:1px solid #222;border-radius:6px}
+details.code summary{padding:9px 14px;font-size:12px;color:var(--muted);cursor:pointer;
+                     user-select:none;list-style:none;display:flex;align-items:center;gap:6px}
+details.code summary::before{content:'›';font-size:16px;transition:transform .15s}
+details[open].code summary::before{transform:rotate(90deg)}
+details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16px;
+                 overflow-x:auto;font-size:12px;line-height:1.65;color:#bbb;font-family:monospace}
+.c{color:#555}.s{color:#a8c97a}.k{color:#7ec8e3}.f{color:#82aaff}.n{color:#f78c6c}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>fMRI Preprocessing &amp; Analysis</h1>
+  <div id="sbar">
+    <div class="si"><div class="dot loading" id="py-dot"></div><span id="py-lbl">Loading Python…</span></div>
+    <div class="si"><div class="dot" id="f-dot"></div><span id="f-lbl">No file loaded</span></div>
+  </div>
+</header>
+
+<nav id="tab-nav">
+  <button class="tb active" onclick="switchTab(0)">Upload &amp; View</button>
+  <button class="tb" onclick="switchTab(1)">① Motion</button>
+  <button class="tb" onclick="switchTab(2)">② Slice timing</button>
+  <button class="tb" onclick="switchTab(3)">③ Smoothing</button>
+  <button class="tb" onclick="switchTab(4)">④ Normalisation</button>
+  <button class="tb" onclick="switchTab(5)">⑤ Design matrix</button>
+  <button class="tb" onclick="switchTab(6)">⑥ Activation map</button>
+</nav>
+
+<main>
+
+<!-- ══ Tab 0: Upload & View ══════════════════════════════════════════════════ -->
+<div class="tab active" id="tab-0">
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;max-width:1100px;margin-left:auto;margin-right:auto">
+
+    <div class="upload-card" style="margin-bottom:0">
+      <h2>Functional data</h2>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        The BOLD time series — 229 brain volumes, one every 1.5 s.
+      </div>
+      <div id="drop-func" class="drop-zone" onclick="document.getElementById('fi-func').click()">
+        <div>Drop <code>.nii.gz</code> here or click</div>
+        <div style="font-size:11px;margin-top:4px;color:#444">
+          <code>sub-01_…_bold.nii.gz</code>
+        </div>
+        <input type="file" id="fi-func" accept=".gz,.nii">
+      </div>
+      <div id="func-info" class="file-info">Required for smoothing &amp; GLM stages.</div>
+    </div>
+
+    <div class="upload-card" style="margin-bottom:0">
+      <h2>Structural data</h2>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        A T1-weighted anatomical scan — high resolution, shows brain structure.
+      </div>
+      <div id="drop-anat" class="drop-zone" onclick="document.getElementById('fi-anat').click()">
+        <div>Drop <code>.nii.gz</code> here or click</div>
+        <div style="font-size:11px;margin-top:4px;color:#444">
+          <code>sub-01_…_T1w.nii.gz</code>
+        </div>
+        <input type="file" id="fi-anat" accept=".gz,.nii">
+      </div>
+      <div id="anat-info" class="file-info">Optional — enables structural viewer.</div>
+    </div>
+
+  </div>
+
+  <div class="viewer-card" id="viewer-card" style="display:none">
+    <h2 style="margin-bottom:14px">Brain viewer</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- Functional panel -->
+      <div class="vp">
+        <div class="vp-label">Functional (BOLD mean)</div>
+        <div class="vp-orients">
+          <button class="bg active" id="vob-func-axial"    onclick="setOrientPanel('func','axial')">Axial</button>
+          <button class="bg"        id="vob-func-coronal"  onclick="setOrientPanel('func','coronal')">Coronal</button>
+          <button class="bg"        id="vob-func-sagittal" onclick="setOrientPanel('func','sagittal')">Sagittal</button>
+        </div>
+        <div class="vp-wrap" id="vwrap-func">
+          <div id="vstatus-func" class="ph">Upload functional file to view.</div>
+          <canvas id="vcanvas-func" style="display:none"></canvas>
+        </div>
+        <div class="slice-ctrl">
+          <span>Slice</span>
+          <input type="range" id="vslider-func" min="0" max="42" value="21"
+                 oninput="onSlicePanel('func',this.value)">
+          <span id="vslnum-func" style="width:28px">21</span>
+        </div>
+        <div id="vmeta-func" class="vmeta"></div>
+      </div>
+
+      <!-- Structural panel -->
+      <div class="vp">
+        <div class="vp-label">Structural (T1)</div>
+        <div class="vp-orients">
+          <button class="bg active" id="vob-anat-axial"    onclick="setOrientPanel('anat','axial')">Axial</button>
+          <button class="bg"        id="vob-anat-coronal"  onclick="setOrientPanel('anat','coronal')">Coronal</button>
+          <button class="bg"        id="vob-anat-sagittal" onclick="setOrientPanel('anat','sagittal')">Sagittal</button>
+        </div>
+        <div class="vp-wrap" id="vwrap-anat">
+          <div id="vstatus-anat" class="ph">Upload structural file to view.</div>
+          <canvas id="vcanvas-anat" style="display:none"></canvas>
+        </div>
+        <div class="slice-ctrl">
+          <span>Slice</span>
+          <input type="range" id="vslider-anat" min="0" max="53" value="27"
+                 oninput="onSlicePanel('anat',this.value)">
+          <span id="vslnum-anat" style="width:28px">27</span>
+        </div>
+        <div id="vmeta-anat" class="vmeta"></div>
+      </div>
+
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#444;line-height:1.5">
+      Functional: average of all 229 BOLD volumes (4.5 mm voxels). Structural: high-resolution T1 (1 mm voxels).
+      Each panel scrolls independently — try all three orientations.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ Tab 1: Motion ════════════════════════════════════════════════════════ -->
+<div class="tab" id="tab-1">
+  <div class="stage">
+    <div class="shdr"><div class="snum">1</div><h2>Motion correction</h2></div>
+    <div class="sbody">
+      <div class="prob">
+        <h3>The problem</h3>
+        <p>Participants move their heads during scanning — even fractions of a millimetre
+        cause neighbouring brain regions to appear to "activate" when they haven't. The
+        scanner collects one full brain volume every 1.5 seconds (the repetition time, TR),
+        giving 229 volumes over 5¾ minutes.</p>
+      </div>
+      <div class="fix">
+        <h3>The fix — realignment</h3>
+        <p>fMRIPrep estimated how much the head moved at each TR, saving six parameters:
+        three translations (left-right, front-back, up-down in mm) and three rotations
+        (roll, pitch, yaw in radians). These are plotted below. Change the scrubbing
+        threshold and see how many volumes would be discarded for excessive movement.</p>
+      </div>
+      <div class="ctrls">
+        <div class="cg">
+          <label>Scrubbing threshold</label>
+          <input type="number" id="fd-thresh" value="0.5" min="0.1" max="2.0" step="0.1">
+          <div class="hint">mm — try 0.2 or 1.5</div>
+        </div>
+        <button id="btn-motion" disabled>Plot motion</button>
+      </div>
+      <div class="out" id="out-motion"><div class="ph">Click "Plot motion" to see the head movement trace.</div></div>
+      <details class="code"><summary>Python code</summary><pre><code><span class="k">import</span> pandas <span class="k">as</span> pd
+<span class="k">import</span> numpy <span class="k">as</span> np
+
+confounds = pd.<span class="f">read_csv</span>(<span class="s">'sub-01_desc-confounds_regressors.tsv'</span>, sep=<span class="s">'\t'</span>)
+
+<span class="c"># Framewise displacement: total head movement between consecutive volumes</span>
+cols  = [<span class="s">'X'</span>, <span class="s">'Y'</span>, <span class="s">'Z'</span>, <span class="s">'RotX'</span>, <span class="s">'RotY'</span>, <span class="s">'RotZ'</span>]
+delta = confounds[cols].<span class="f">diff</span>().<span class="f">fillna</span>(<span class="n">0</span>)
+delta[[<span class="s">'RotX'</span>, <span class="s">'RotY'</span>, <span class="s">'RotZ'</span>]] *= <span class="n">50</span>  <span class="c"># radians → mm at cortical surface</span>
+FD = delta.<span class="f">abs</span>().<span class="f">sum</span>(axis=<span class="n">1</span>)
+
+bad = FD[FD > <span class="n">0.5</span>]
+<span class="f">print</span>(<span class="s">f'{len(bad)} volumes exceed scrubbing threshold'</span>)</code></pre></details>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab 2: Slice Timing ════════════════════════════════════════════════════ -->
+<div class="tab" id="tab-2">
+  <div class="stage">
+    <div class="shdr"><div class="snum">2</div><h2>Slice timing correction</h2></div>
+    <div class="sbody">
+      <div class="prob">
+        <h3>The problem</h3>
+        <p>The scanner doesn't capture all brain slices at the same moment. In a 1.5 s TR,
+        43 slices are collected one after the other — so the first slice is acquired at
+        t = 0 ms and the last at t ≈ 1,465 ms, almost a full TR later. This means that
+        the "same" volume actually contains brain activity from slightly different time
+        points in different slices. When the GLM later assumes all slices were measured
+        at the same moment, this timing mismatch introduces a small but systematic
+        error in the activation estimates.</p>
+      </div>
+      <div class="fix">
+        <h3>The fix — temporal interpolation</h3>
+        <p>Each slice's time series is shifted back to a common reference time using
+        interpolation. The plot below shows when each slice is actually acquired within
+        the TR (left), and how the HRF-convolved signal from an early-acquired slice
+        differs from a late-acquired one before and after correction (right).</p>
+      </div>
+      <div class="ctrls">
+        <div class="cg">
+          <label>Acquisition order</label>
+          <select id="stc-order">
+            <option value="sequential">Sequential (bottom → top)</option>
+            <option value="interleaved">Interleaved (odd then even)</option>
+            <option value="sequential_desc">Sequential (top → bottom)</option>
+          </select>
+        </div>
+        <button id="btn-stc" disabled>Show slice timing</button>
+      </div>
+      <div class="out" id="out-stc"><div class="ph">Click "Show slice timing" to visualise the correction.</div></div>
+      <details class="code"><summary>Python code</summary><pre><code><span class="k">from</span> scipy.interpolate <span class="k">import</span> interp1d
+<span class="k">import</span> numpy <span class="k">as</span> np
+<span class="k">import</span> nibabel <span class="k">as</span> nib
+
+img  = nib.<span class="f">load</span>(<span class="s">'sub-01_task-languagelocalizer_desc-preproc_bold.nii.gz'</span>)
+data = img.<span class="f">get_fdata</span>(dtype=np.float32)
+nx, ny, nz, nt = data.shape
+tr  = <span class="n">1.5</span>
+
+<span class="c"># Time at which each slice is acquired within a TR (sequential example)</span>
+t_acq = np.<span class="f">arange</span>(nz) * tr / nz   <span class="c"># slice 0 → 0 ms, slice 42 → 1465 ms</span>
+t_ref = <span class="n">0.0</span>                         <span class="c"># reference: align everything to slice 0</span>
+
+<span class="c"># Correct one voxel's time series from the last slice</span>
+ts   = data[<span class="n">22</span>, <span class="n">26</span>, -<span class="n">1</span>, :]            <span class="c"># pick a voxel in the last (latest) slice</span>
+t_orig = np.<span class="f">arange</span>(nt) * tr + t_acq[-<span class="n">1</span>]
+t_corr = np.<span class="f">arange</span>(nt) * tr + t_ref
+f      = <span class="f">interp1d</span>(t_orig, ts, kind=<span class="s">'linear'</span>, fill_value=<span class="s">'extrapolate'</span>)
+ts_corrected = f(t_corr)</code></pre></details>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab 3: Smoothing ══════════════════════════════════════════════════════ -->
+<div class="tab" id="tab-3">
+  <div class="stage">
+    <div class="shdr"><div class="snum">3</div><h2>Spatial smoothing</h2></div>
+    <div class="sbody">
+      <div class="prob">
+        <h3>The problem</h3>
+        <p>Individual voxels are noisy — the signal from any single voxel is weak and
+        unreliable. Neighbouring voxels tend to share the same underlying neural activity,
+        so averaging across nearby voxels improves the signal-to-noise ratio.</p>
+      </div>
+      <div class="fix">
+        <h3>The fix — Gaussian smoothing</h3>
+        <p>A Gaussian kernel replaces each voxel's value with a weighted average of itself
+        and its neighbours. The kernel width is described by its full-width at half-maximum
+        (FWHM). A wider kernel means more signal but less spatial precision. Each voxel in
+        this dataset is 4.5 mm — try 2 mm, 6 mm, and 20 mm to see the trade-off.</p>
+      </div>
+      <div class="ctrls">
+        <div class="cg">
+          <label>Smoothing kernel (FWHM)</label>
+          <input type="number" id="smooth-fwhm" value="6" min="0" max="30" step="1">
+          <div class="hint">mm — try 2, 6, or 20</div>
+        </div>
+        <button id="btn-smooth" disabled>Apply smoothing</button>
+      </div>
+      <div class="out" id="out-smooth"><div class="ph">Set a kernel size and click "Apply smoothing".</div></div>
+      <details class="code"><summary>Python code</summary><pre><code><span class="k">import</span> nibabel <span class="k">as</span> nib
+<span class="k">from</span> nilearn.image <span class="k">import</span> smooth_img
+
+img = nib.<span class="f">load</span>(<span class="s">'sub-01_task-languagelocalizer_desc-preproc_bold.nii.gz'</span>)
+<span class="f">print</span>(<span class="s">'Shape:'</span>, img.shape)  <span class="c"># (45, 53, 43, 229)  →  x, y, z, time</span>
+
+<span class="c"># FWHM controls the trade-off: larger → more signal, less spatial detail</span>
+smoothed_img = smooth_img(img, fwhm=<span class="n">6</span>)  <span class="c"># try 2 or 20 to see the difference</span></code></pre></details>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab 4: Normalisation ══════════════════════════════════════════════════ -->
+<div class="tab" id="tab-4">
+  <div class="stage">
+    <div class="shdr"><div class="snum">4</div><h2>Spatial normalisation</h2></div>
+    <div class="sbody">
+      <div class="prob">
+        <h3>The problem</h3>
+        <p>Every person's brain is a different shape and size, sitting at a different
+        position in the scanner. If we want to compare activation maps across participants,
+        we need all brains in the same co-ordinate system — so that a given (x, y, z)
+        position means the same brain region in every participant.</p>
+      </div>
+      <div class="fix">
+        <h3>The fix — registration to MNI152 standard space</h3>
+        <p>Each brain is non-linearly warped to match the MNI152 template (an average of
+        152 brains). After normalisation, co-ordinate (x, y, z) refers to the same brain
+        region in every participant. This step is performed by fMRIPrep — the file you
+        uploaded is already in MNI space.</p>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <button class="bg active" id="btn-nb" onclick="showNorm('before')">Before normalisation</button>
+        <button class="bg" id="btn-na" onclick="showNorm('after')">After normalisation</button>
+      </div>
+      <div class="out" id="out-norm"><div class="ph">Loading images…</div></div>
+      <details class="code"><summary>Python code</summary><pre><code><span class="c"># Normalisation is done by fMRIPrep using ANTs (Advanced Normalisation Tools).</span>
+<span class="c"># It computes a nonlinear warp from each person's native brain to MNI152 space.</span>
+<span class="c"># The data we received is already normalised.</span>
+
+<span class="k">from</span> nilearn.datasets <span class="k">import</span> load_mni152_template
+mni = load_mni152_template()
+
+<span class="c"># Our BOLD data is already in MNI space —</span>
+<span class="c"># co-ordinate (x, y, z) now means the same brain region in every participant.</span>
+bold_mni = nib.<span class="f">load</span>(<span class="s">'sub-01_task-languagelocalizer_desc-preproc_bold.nii.gz'</span>)</code></pre></details>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab 5: Design matrix ═══════════════════════════════════════════════════ -->
+<div class="tab" id="tab-5">
+  <div class="stage">
+    <div class="shdr"><div class="snum">5</div><h2>Building the design matrix</h2></div>
+    <div class="sbody">
+      <div class="prob">
+        <h3>The problem</h3>
+        <p>After preprocessing we have 229 brain volumes — but we can't simply average
+        the "language" volumes and subtract the "string" volumes. The blood-oxygen
+        response is slow, peaking ~5 s after a stimulus and taking ~15 s to return to
+        baseline. We need a model that accounts for this delay before we can ask
+        "which voxels responded more during language than during strings?"</p>
+      </div>
+      <div class="fix">
+        <h3>The fix — convolve with the HRF</h3>
+        <p>The haemodynamic response function (HRF) is a mathematical model of the
+        slow blood-flow response. Convolving each condition's on/off timing with the
+        HRF gives the <em>predicted</em> BOLD signal for that condition. These predicted
+        signals form the columns of the <strong>design matrix</strong> — the input to
+        the GLM. Change the HRF shape or the high-pass filter cutoff and preview how
+        the design matrix changes.</p>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em">Enter your experimental events</div>
+          <button class="bg" id="btn-load-events" style="font-size:12px;padding:5px 11px">Load all 24 real events</button>
+        </div>
+        <div style="font-size:13px;color:#777;margin-bottom:10px;line-height:1.5">
+          Each row is one trial: when it started (<em>onset</em>), how long it lasted (<em>duration</em>), and which condition it was.
+          The task alternated Language and Strings blocks of 7 s each, separated by 7.5 s rest.
+        </div>
+        <div style="max-height:280px;overflow-y:auto;border:1px solid #222;border-radius:6px">
+          <table class="ev-tbl">
+            <thead><tr>
+              <th style="width:32px">#</th>
+              <th>Condition</th>
+              <th>Onset (s)</th>
+              <th>Duration (s)</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="ev-tbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="bg" id="btn-add-trial">+ Add trial</button>
+        </div>
+      </div>
+
+      <div id="ev-preview" style="margin-bottom:18px;display:none">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.06em">Your timeline</div>
+        <canvas id="ev-canvas" height="80"></canvas>
+        <div style="display:flex;gap:16px;margin-top:4px;font-size:12px;color:var(--muted)">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#4a9eff;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Language</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#ff9800;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Strings</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.06em">Model parameters</div>
+        <div class="ctrls" style="margin-bottom:10px">
+          <div class="cg">
+            <label>HRF model</label>
+            <select id="hrf-model">
+              <option value="spm">SPM canonical</option>
+              <option value="glover">Glover double-gamma</option>
+              <option value="spm + derivative">SPM + time derivative</option>
+            </select>
+            <div class="hint">shape of the blood-flow response</div>
+          </div>
+          <div class="cg">
+            <label>High-pass filter cutoff</label>
+            <input type="number" id="hp-secs" value="128" min="32" max="512" step="16">
+            <div class="hint">seconds — try 32 or 256</div>
+          </div>
+          <button id="btn-dm">Build design matrix</button>
+        </div>
+        <div class="out" id="out-dm"><div class="ph">Set parameters above, then click "Build design matrix" to see how each condition's timing is modelled.</div></div>
+      </div>
+
+      <details class="code"><summary>Python code</summary><pre><code><span class="k">from</span> nilearn.glm.first_level <span class="k">import</span> make_first_level_design_matrix
+<span class="k">import</span> pandas <span class="k">as</span> pd, numpy <span class="k">as</span> np
+
+events = pd.<span class="f">read_csv</span>(<span class="s">'sub-01_task-languagelocalizer_events.tsv'</span>, sep=<span class="s">'\t'</span>)
+<span class="c"># Each row: onset (s), duration (s), trial_type ('language' or 'string')</span>
+
+tr         = <span class="n">1.5</span>
+n_vols     = <span class="n">229</span>
+frame_times = np.<span class="f">arange</span>(n_vols) * tr
+
+<span class="c"># Convolve stimulus timing with HRF → predicted BOLD shape per condition</span>
+design_matrix = <span class="f">make_first_level_design_matrix</span>(
+    frame_times, events,
+    hrf_model=<span class="s">'spm'</span>,      <span class="c"># haemodynamic response function shape</span>
+    drift_model=<span class="s">'cosine'</span>,
+    high_pass=<span class="n">1</span>/<span class="n">128</span>       <span class="c"># removes slow scanner drift below this frequency</span>
+)</code></pre></details>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab 6: Activation map ══════════════════════════════════════════════════ -->
+<div class="tab" id="tab-6">
+  <div class="stage">
+    <div class="shdr"><div class="snum">6</div><h2>First-level GLM — activation map</h2></div>
+    <div class="sbody">
+      <div class="fix">
+        <h3>Fitting the model</h3>
+        <p>The GLM fits the design matrix to the observed BOLD signal at each voxel
+        independently, estimating how strongly each condition drove that voxel's
+        response. Dividing the estimated effect size by its uncertainty gives a
+        <strong>z-score</strong>. Voxels with a z-score above the threshold are
+        flagged as "activated". The contrast below lets you ask: which voxels
+        respond <em>more</em> to language, or <em>more</em> to strings?</p>
+      </div>
+
+      <div class="need-file" id="need-file">⬆ Upload your brain scan on the first tab before running the GLM.</div>
+
+      <div class="ctrls">
+        <div class="cg">
+          <label>Z-score threshold</label>
+          <input type="number" id="z-thresh" value="3.0" min="1.0" max="8.0" step="0.5">
+          <div class="hint">higher = stricter (try 2 or 5)</div>
+        </div>
+        <div class="cg">
+          <label>Contrast</label>
+          <div class="radio-grp">
+            <label><input type="radio" name="con" value="lang" checked> Language &gt; strings</label>
+            <label><input type="radio" name="con" value="str"> Strings &gt; language</label>
+          </div>
+        </div>
+        <button id="btn-glm" disabled>Run GLM</button>
+      </div>
+
+      <div id="rethresh-row" style="display:none;margin-bottom:4px">
+        <div class="ctrls">
+          <div class="cg">
+            <label>Axial slices shown</label>
+            <input type="number" id="sl-start" value="8" min="0" max="34" step="1">
+            <div class="hint">first of 9 evenly spaced</div>
+          </div>
+          <button id="btn-rt">Update map</button>
+        </div>
+      </div>
+
+      <div class="out" id="out-glm"><div class="ph">Run the GLM to see the activation map.</div></div>
+      <details class="code"><summary>Python code</summary><pre><code><span class="k">from</span> nilearn.glm.first_level <span class="k">import</span> FirstLevelModel
+
+glm = <span class="f">FirstLevelModel</span>(
+    t_r=<span class="n">1.5</span>,
+    hrf_model=<span class="s">'spm'</span>,
+    drift_model=<span class="s">'cosine'</span>,
+    high_pass=<span class="n">1</span>/<span class="n">128</span>,
+    noise_model=<span class="s">'ar1'</span>,   <span class="c"># AR(1) autocorrelation correction</span>
+)
+glm.<span class="f">fit</span>(smoothed_img, events, confounds=confounds)
+
+<span class="c"># z-score: effect size ÷ uncertainty — large = strong activation</span>
+z_map = glm.<span class="f">compute_contrast</span>(<span class="s">'language-string'</span>, output_type=<span class="s">'z_score'</span>)</code></pre></details>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ══════════════════════════ JAVASCRIPT ════════════════════════════════════ -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let py = null, precomp = null, fileReady = false, glmFitted = false;
+let motionDone = false, viewerLoaded = false;
+let anatReady = false, stcDone = false, smoothDone = false, normViewed = false, dmDone = false;
+
+function tabUnlocked(n) {
+  if (n===0) return true;
+  if (n===1) return fileReady && anatReady;
+  if (n===2) return motionDone;
+  if (n===3) return stcDone;
+  if (n===4) return smoothDone;
+  if (n===5) return normViewed;
+  if (n===6) return dmDone;
+  return false;
+}
+function updateTabLocks() {
+  document.querySelectorAll('.tb').forEach((btn,i)=>{ btn.disabled=!tabUnlocked(i); });
+}
+const VP = {
+  func: { volData:null, volShape:null, zooms:[1,1,1], orient:'axial', slice:{axial:21,coronal:26,sagittal:22} },
+  anat: { volData:null, volShape:null, zooms:[1,1,1], orient:'axial', slice:{axial:27,coronal:128,sagittal:128} }
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const setHTML = (id,h) => $(id).innerHTML = h;
+const showImg = (id,b) => $(id).innerHTML = `<img src="data:image/png;base64,${b}">`;
+const showWait= (id,m) => $(id).innerHTML = `<div class="run">⏳ ${m}</div>`;
+const showErr = (id,m) => $(id).innerHTML = `<div class="er">Error: ${m}</div>`;
+const setDot  = (id,c) => $(id).className = 'dot '+c;
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let activeTab = 0;
+function switchTab(n) {
+  if (!tabUnlocked(n)) return;
+  document.querySelectorAll('.tab').forEach((t,i) => t.className='tab'+(i===n?' active':''));
+  document.querySelectorAll('.tb').forEach((b,i) => b.className='tb'+(i===n?' active':''));
+  updateTabLocks();
+  activeTab = n;
+  if (n===1 && py && !motionDone) runMotion();
+  if (n===4 && precomp) showNorm('before');
+  if (n===6) checkGlm();
+}
+
+// ── Precomputed data ──────────────────────────────────────────────────────────
+(async()=>{
+  try {
+    precomp = await fetch('precomputed.json').then(r=>r.json());
+    if (activeTab===1 && py && !motionDone) runMotion();
+    if (activeTab===4) showNorm('before');
+  } catch(e) { console.error('precomputed.json failed',e); }
+})();
+
+// ── Pyodide ───────────────────────────────────────────────────────────────────
+(async()=>{
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js';
+  document.head.appendChild(s);
+  await new Promise(r=>s.onload=r);
+  $('py-lbl').textContent='Loading packages…';
+  const _py=await loadPyodide();
+  await _py.loadPackage(['numpy','scipy','matplotlib','pandas','micropip']);
+  await _py.runPythonAsync(`
+import micropip
+await micropip.install(['nibabel','nilearn'])
+`);
+  await _py.runPythonAsync(`
+import numpy as np, nibabel as nib, pandas as pd
+import matplotlib; matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter
+from nilearn.glm.first_level import FirstLevelModel
+from nilearn.image import smooth_img, mean_img
+import io, base64, json
+`);
+  py=_py;
+  setDot('py-dot','ready');
+  $('py-lbl').textContent='Python ready';
+  $('btn-motion').disabled=false;
+  $('btn-stc').disabled=false;
+  $('btn-smooth').disabled=false;
+  $('btn-dm').disabled=false;
+  checkGlm();
+  checkViewer();
+  if (activeTab===1 && !motionDone) runMotion();
+})().catch(e=>{setDot('py-dot','error');$('py-lbl').textContent='Python failed';console.error(e);});
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function makeDrop(zoneId, inputId, handler) {
+  const dz=$(zoneId);
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0])});
+  $(inputId).addEventListener('change',e=>{if(e.target.files[0])handler(e.target.files[0])});
+}
+makeDrop('drop-func','fi-func',handleFunc);
+makeDrop('drop-anat','fi-anat',handleAnat);
+
+async function handleFunc(file) {
+  const info=$('func-info');
+  info.textContent=`Reading ${file.name} (${(file.size/1e6).toFixed(0)} MB)…`;
+  info.className='file-info';
+  setDot('f-dot','loading'); $('f-lbl').textContent='Loading…';
+  try {
+    const buf=await file.arrayBuffer();
+    while(!py) await new Promise(r=>setTimeout(r,300));
+    py.FS.writeFile('/tmp/bold.nii.gz',new Uint8Array(buf));
+    fileReady=true;
+    info.textContent=`✓ ${file.name}`;
+    info.className='file-info ok';
+    setDot('f-dot','ready'); $('f-lbl').textContent='File ready';
+    checkGlm(); checkViewer(); updateTabLocks();
+  } catch(e) {info.textContent=`Error: ${e.message}`;setDot('f-dot','error');}
+}
+
+async function handleAnat(file) {
+  const info=$('anat-info');
+  info.textContent=`Reading ${file.name} (${(file.size/1e6).toFixed(0)} MB)…`;
+  info.className='file-info';
+  try {
+    const buf=await file.arrayBuffer();
+    while(!py) await new Promise(r=>setTimeout(r,300));
+    const ext = file.name.endsWith('.nii.gz') ? '.nii.gz' : '.nii';
+    const tmpPath = '/tmp/anat' + ext;
+    py.FS.writeFile(tmpPath, new Uint8Array(buf));
+    py.globals.set('_anat_path', tmpPath);
+    info.textContent=`✓ ${file.name}`;
+    info.className='file-info ok';
+    loadAnatVolume();
+  } catch(e) {info.textContent=`Error: ${e.message}`;}
+}
+
+async function loadAnatVolume() {
+  setPanelStatus('anat', '⏳ Loading structural…');
+  try {
+    const raw = await py.runPythonAsync(`
+import nibabel as nib, numpy as np, base64
+img = nib.load(_anat_path)
+data = img.get_fdata(dtype=np.float32)
+vol = data if data.ndim==3 else data[...,0]
+vol_u8 = ((vol-vol.min())/(vol.max()-vol.min()+1e-8)*255).astype(np.uint8)
+zooms = [float(z) for z in img.header.get_zooms()[:3]]
+base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(map(str,vol.shape)) + '|' + ','.join(f'{z:.4f}' for z in zooms)
+`);
+    const [b64, shapeStr, zoomsStr] = raw.split('|');
+    const shape = shapeStr.split(',').map(Number);
+    const zooms = zoomsStr ? zoomsStr.split(',').map(Number) : [1,1,1];
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+    VP.anat.volData = arr;
+    VP.anat.volShape = shape;
+    VP.anat.zooms = zooms;
+    anatReady = true; updateTabLocks();
+    const mid = shape[2] >> 1;
+    VP.anat.slice = {axial:mid, coronal:shape[1]>>1, sagittal:shape[0]>>1};
+    $('vslider-anat').max = shape[2]-1;
+    $('vslider-anat').value = mid;
+    $('vslnum-anat').textContent = mid;
+    setOrientPanel('anat', 'axial');
+  } catch(e) {
+    setPanelStatus('anat', `Error: ${e.message}`);
+    console.error('Anat load error',e);
+  }
+}
+
+async function checkViewer() {
+  if (!py || !fileReady || viewerLoaded) return;
+  viewerLoaded = true;
+  $('viewer-card').style.display = 'block';
+  setPanelStatus('func', '⏳ Computing mean image…');
+  try {
+    const raw = await py.runPythonAsync(`
+import nibabel as nib, numpy as np, base64
+img = nib.load('/tmp/bold.nii.gz')
+data = img.get_fdata(dtype=np.float32)
+mean_vol = data.mean(axis=3)
+vol_u8 = ((mean_vol - mean_vol.min()) / (mean_vol.max() - mean_vol.min() + 1e-8) * 255).astype(np.uint8)
+zooms = [float(z) for z in img.header.get_zooms()[:3]]
+base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(map(str, mean_vol.shape)) + '|' + ','.join(f'{z:.4f}' for z in zooms)
+`);
+    const [b64, shapeStr, zoomsStr] = raw.split('|');
+    const shape = shapeStr.split(',').map(Number);
+    const zooms = zoomsStr ? zoomsStr.split(',').map(Number) : [1,1,1];
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+    VP.func.volData = arr;
+    VP.func.volShape = shape;
+    VP.func.zooms = zooms;
+    setOrientPanel('func', 'axial');
+  } catch(e) {
+    setPanelStatus('func', `Error: ${e.message}`);
+  }
+}
+
+function checkGlm() {
+  $('btn-glm').disabled=!(py&&fileReady);
+  $('need-file').style.display=fileReady?'none':'block';
+}
+
+// ── Brain viewer (dual panel) ─────────────────────────────────────────────────
+function setPanelStatus(id, msg) {
+  $('vstatus-'+id).textContent=msg; $('vstatus-'+id).style.display='block';
+  $('vcanvas-'+id).style.display='none';
+}
+
+function setOrientPanel(id, orient) {
+  const v=VP[id];
+  v.orient=orient;
+  ['axial','coronal','sagittal'].forEach(o=>{
+    $(`vob-${id}-${o}`).className='bg'+(o===orient?' active':'');
+  });
+  if (v.volShape) {
+    const [nx,ny,nz]=v.volShape;
+    const maxes={axial:nz-1,coronal:ny-1,sagittal:nx-1};
+    const sl=$('vslider-'+id);
+    sl.max=maxes[orient];
+    sl.value=v.slice[orient];
+    $('vslnum-'+id).textContent=v.slice[orient];
+  }
+  renderPanel(id);
+}
+
+function onSlicePanel(id, val) {
+  VP[id].slice[VP[id].orient]=parseInt(val);
+  $('vslnum-'+id).textContent=val;
+  renderPanel(id);
+}
+
+function renderPanel(id) {
+  const v=VP[id];
+  if (!v.volData || !v.volShape) return;
+  const [nx,ny,nz]=v.volShape;
+  const canvas=$('vcanvas-'+id), ctx=canvas.getContext('2d');
+  const orient=v.orient, sliceIdx=v.slice[orient];
+  let w,h,getVal;
+  if (orient==='axial') {
+    w=nx; h=ny; getVal=(px,py)=>v.volData[px*ny*nz+(h-1-py)*nz+sliceIdx];
+  } else if (orient==='coronal') {
+    w=nx; h=nz; getVal=(px,py)=>v.volData[px*ny*nz+sliceIdx*nz+(h-1-py)];
+  } else {
+    w=ny; h=nz; getVal=(px,py)=>v.volData[sliceIdx*ny*nz+px*nz+(h-1-py)];
+  }
+  canvas.width=w; canvas.height=h;
+  const imgd=ctx.createImageData(w,h);
+  for (let py=0;py<h;py++) for (let px=0;px<w;px++) {
+    const val=getVal(px,py), i=(py*w+px)*4;
+    imgd.data[i]=val; imgd.data[i+1]=val; imgd.data[i+2]=val; imgd.data[i+3]=255;
+  }
+  ctx.putImageData(imgd,0,0);
+  // Scale display to physical dimensions so voxels appear at correct aspect ratio
+  const [zx,zy,zz]=v.zooms||[1,1,1];
+  let physW,physH;
+  if (orient==='axial')    { physW=w*zx; physH=h*zy; }
+  else if (orient==='coronal')  { physW=w*zx; physH=h*zz; }
+  else                          { physW=w*zy; physH=h*zz; }
+  const maxH=280, maxW=500, ar=physW/physH;
+  let dispH=maxH, dispW=Math.round(ar*maxH);
+  if (dispW>maxW) { dispW=maxW; dispH=Math.round(maxW/ar); }
+  canvas.style.width=dispW+'px'; canvas.style.height=dispH+'px';
+  $('vstatus-'+id).style.display='none';
+  canvas.style.display='block';
+  const maxSlice={axial:nz-1,coronal:ny-1,sagittal:nx-1};
+  $('vmeta-'+id).textContent=`${orient} · slice ${sliceIdx} of ${maxSlice[orient]}`;
+}
+
+// ── Events table ──────────────────────────────────────────────────────────────
+const EV_COLORS={'language':'#4a9eff','string':'#ff9800'};
+
+function addEventRow(cond='language', onset='', duration='7.0') {
+  const tbody=$('ev-tbody');
+  const tr=document.createElement('tr');
+  const opts=['language','string'].map(c=>
+    `<option value="${c}"${c===cond?' selected':''}>${c==='language'?'Language':'Strings'}</option>`
+  ).join('');
+  tr.innerHTML=`
+    <td style="color:var(--muted);font-size:11px;text-align:center;padding:3px 4px"></td>
+    <td><select class="ev-cond">${opts}</select></td>
+    <td><input type="number" class="ev-onset" value="${onset}" min="0" max="500" step="0.5"></td>
+    <td><input type="number" class="ev-dur"   value="${duration}" min="0.5" max="60" step="0.5"></td>
+    <td><button class="bg" style="padding:2px 7px;font-size:11px" onclick="this.closest('tr').remove();renumberEv()">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  renumberEv();
+}
+
+function renumberEv() {
+  document.querySelectorAll('#ev-tbody tr').forEach((tr,i)=>{tr.cells[0].textContent=i+1;});
+}
+
+function getEventsFromTable() {
+  const onsets=[],durations=[],trial_types=[];
+  document.querySelectorAll('#ev-tbody tr').forEach(tr=>{
+    const cond=tr.querySelector('.ev-cond').value;
+    const onset=parseFloat(tr.querySelector('.ev-onset').value);
+    const dur=parseFloat(tr.querySelector('.ev-dur').value);
+    if(!isNaN(onset)&&!isNaN(dur)&&cond){onsets.push(onset);durations.push(dur);trial_types.push(cond);}
+  });
+  return {onset:onsets,duration:durations,trial_type:trial_types};
+}
+
+function loadAllEvents() {
+  if(!precomp) return;
+  $('ev-tbody').innerHTML='';
+  precomp.events.onset.forEach((on,i)=>{
+    addEventRow(precomp.events.trial_type[i],on.toFixed(1),precomp.events.duration[i].toFixed(1));
+  });
+}
+
+function drawEventsFromTable() {
+  const ev=getEventsFromTable();
+  if(!ev.onset.length) return;
+  $('ev-preview').style.display='block';
+  const canvas=$('ev-canvas');
+  const dpr=window.devicePixelRatio||1;
+  const CW=canvas.offsetWidth||700, CH=80;
+  canvas.width=CW*dpr; canvas.height=CH*dpr;
+  canvas.style.width=CW+'px'; canvas.style.height=CH+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  const totalT=Math.max(...ev.onset.map((o,i)=>o+ev.duration[i]))+10;
+  const ml=50,mr=12,mt=14,mb=24,pw=CW-ml-mr,ph=CH-mt-mb;
+  const tx=t=>ml+(t/totalT)*pw;
+  ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,CW,CH);
+  ev.onset.forEach((on,i)=>{
+    ctx.fillStyle=EV_COLORS[ev.trial_type[i]]||'#888';
+    ctx.globalAlpha=0.85;
+    ctx.fillRect(tx(on),mt,(ev.duration[i]/totalT)*pw,ph);
+  });
+  ctx.globalAlpha=1;
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(ml,mt+ph); ctx.lineTo(ml+pw,mt+ph); ctx.stroke();
+  ctx.fillStyle='#555'; ctx.font='10px system-ui'; ctx.textAlign='center';
+  const step=totalT>300?60:totalT>120?30:15;
+  for(let t=0;t<=totalT;t+=step){
+    const x=tx(t);
+    ctx.strokeStyle='#333'; ctx.beginPath(); ctx.moveTo(x,mt+ph); ctx.lineTo(x,mt+ph+4); ctx.stroke();
+    ctx.fillText(t+'s',x,CH-3);
+  }
+  ctx.textAlign='left'; ctx.fillStyle='#555'; ctx.fillText('Time →',ml,CH-3);
+}
+
+$('btn-add-trial').addEventListener('click',()=>addEventRow());
+$('btn-load-events').addEventListener('click',loadAllEvents);
+window.addEventListener('resize',()=>{if(activeTab===5&&$('ev-preview').style.display!=='none')drawEventsFromTable();});
+
+// Seed with two example rows to show the format
+addEventRow('language','7.0','7.0');
+addEventRow('string','21.5','7.0');
+
+// ── Stage 1: Motion ───────────────────────────────────────────────────────────
+const MOTION_PY=`
+import numpy as np, json
+import matplotlib.pyplot as plt
+import io, base64
+
+conf  = json.loads(_conf_json)
+thr   = float(_fd_thr)
+cols  = ['X','Y','Z','RotX','RotY','RotZ']
+mot   = np.array([conf[c] for c in cols]).T
+delta = np.diff(mot,axis=0); delta[:,3:]*=50
+FD    = np.concatenate([[0],np.abs(delta).sum(axis=1)])
+bad   = np.where(FD>thr)[0]
+t     = np.arange(len(FD))
+clr   = ['#4a9eff','#56c96e','#ff9800']
+
+fig,(ax1,ax2,ax3)=plt.subplots(3,1,figsize=(10,8),facecolor='#111')
+fig.suptitle('Head movement — participant 1',color='white',fontsize=13,y=1.01)
+
+for i,(c,lbl) in enumerate(zip(['X','Y','Z'],['X (L↔R)','Y (A↔P)','Z (I↔S)'])):
+    ax1.plot(t,conf[c],color=clr[i],lw=1.3,label=lbl)
+ax1.axhline(0,color='#2a2a2a',lw=0.8)
+ax1.set_facecolor('#1a1a1a'); ax1.set_ylabel('Translation (mm)',color='white',fontsize=10)
+ax1.legend(facecolor='#1a1a1a',labelcolor='white',fontsize=9,edgecolor='#333',ncol=3)
+ax1.tick_params(colors='white')
+for sp in ax1.spines.values(): sp.set_edgecolor('#333')
+
+for i,(c,lbl) in enumerate(zip(['RotX','RotY','RotZ'],['Roll','Pitch','Yaw'])):
+    ax2.plot(t,conf[c],color=clr[i],lw=1.3,label=lbl)
+ax2.axhline(0,color='#2a2a2a',lw=0.8)
+ax2.set_facecolor('#1a1a1a'); ax2.set_ylabel('Rotation (rad)',color='white',fontsize=10)
+ax2.legend(facecolor='#1a1a1a',labelcolor='white',fontsize=9,edgecolor='#333',ncol=3)
+ax2.tick_params(colors='white')
+for sp in ax2.spines.values(): sp.set_edgecolor('#333')
+
+ax3.fill_between(t,FD,alpha=0.3,color='#ff9800')
+ax3.plot(t,FD,color='#ff9800',lw=1.5,label='Framewise displacement')
+ax3.axhline(thr,color='#e06060',lw=1.5,ls='--',label=f'Threshold: {thr} mm')
+if len(bad):
+    ax3.scatter(bad,FD[bad],color='#e06060',zorder=5,s=25,
+                label=f'{len(bad)} volume{"s" if len(bad)>1 else ""} flagged')
+ax3.set_facecolor('#1a1a1a'); ax3.set_xlabel('Volume number',color='white',fontsize=10)
+ax3.set_ylabel('FD (mm)',color='white',fontsize=10)
+ax3.legend(facecolor='#1a1a1a',labelcolor='white',fontsize=9,edgecolor='#333')
+ax3.tick_params(colors='white')
+for sp in ax3.spines.values(): sp.set_edgecolor('#333')
+
+fig.tight_layout()
+buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=110,bbox_inches='tight',facecolor='#111')
+buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+`;
+
+async function runMotion() {
+  if (!precomp) { showErr('out-motion','Precomputed data not loaded — open via the local server, not file://'); return; }
+  if (!py) { showErr('out-motion','Python not ready yet — wait for "Python ready" in the header.'); return; }
+  showWait('out-motion','Plotting motion parameters…');
+  py.globals.set('_conf_json',JSON.stringify(precomp.confounds));
+  py.globals.set('_fd_thr',$('fd-thresh').value);
+  try { showImg('out-motion',await py.runPythonAsync(MOTION_PY)); motionDone=true; updateTabLocks(); }
+  catch(e) { showErr('out-motion',e.message); }
+}
+$('btn-motion').addEventListener('click',runMotion);
+
+// ── Stage 2: Slice timing correction ─────────────────────────────────────────
+const STC_PY=`
+import numpy as np, pandas as pd, json
+import matplotlib.pyplot as plt, matplotlib.gridspec as gridspec
+from nilearn.glm.first_level import make_first_level_design_matrix
+import io, base64
+
+tr      = 1.5
+nz      = 43
+n_vols  = 229
+order   = _stc_order
+
+# Compute within-TR acquisition time for each slice
+if order == 'interleaved':
+    seq = list(range(1, nz, 2)) + list(range(0, nz, 2))
+    t_acq = np.zeros(nz)
+    for rank, sl in enumerate(seq):
+        t_acq[sl] = rank * tr / nz
+elif order == 'sequential_desc':
+    t_acq = np.arange(nz-1, -1, -1) * tr / nz
+else:  # sequential ascending
+    t_acq = np.arange(nz) * tr / nz
+
+sl_early = int(np.argmin(t_acq))   # first acquired
+sl_late  = int(np.argmax(t_acq))   # last acquired
+delay_ms = (t_acq[sl_late] - t_acq[sl_early]) * 1000
+
+# Build HRF regressors at the actual acquisition times of each extreme slice
+events = pd.DataFrame(json.loads(_ev_json))
+ev_lang = events[events.trial_type == 'language'].copy()
+
+ft_early = np.arange(n_vols) * tr + t_acq[sl_early]
+ft_late  = np.arange(n_vols) * tr + t_acq[sl_late]
+ft_ref   = np.arange(n_vols) * tr
+
+dm_early = make_first_level_design_matrix(ft_early, ev_lang, hrf_model='spm', drift_model=None)
+dm_late  = make_first_level_design_matrix(ft_late,  ev_lang, hrf_model='spm', drift_model=None)
+dm_ref   = make_first_level_design_matrix(ft_ref,   ev_lang, hrf_model='spm', drift_model=None)
+
+reg_early = dm_early['language'].values
+reg_late  = dm_late['language'].values
+reg_ref   = dm_ref['language'].values
+
+# Figure
+fig = plt.figure(figsize=(12, 4.5), facecolor='#111')
+gs  = gridspec.GridSpec(1, 2, width_ratios=[1, 2.5], wspace=0.35, figure=fig)
+
+# Left: acquisition timing diagram
+ax1 = fig.add_subplot(gs[0])
+colors = ['#2a2a2a'] * nz
+colors[sl_early] = '#56c96e'
+colors[sl_late]  = '#ff9800'
+ax1.barh(np.arange(nz), t_acq * 1000, color=colors, height=0.85)
+ax1.set_xlabel('Time within TR (ms)', color='white', fontsize=10)
+ax1.set_ylabel('Slice number', color='white', fontsize=10)
+ax1.set_title(f'Acquisition timing\\n({order.replace("_"," ")})', color='white', fontsize=11)
+ax1.set_facecolor('#1a1a1a')
+ax1.tick_params(colors='white')
+for sp in ax1.spines.values(): sp.set_edgecolor('#333')
+ax1.text(0.98, 0.06, f'Slice {sl_early}\\n(first acquired)', transform=ax1.transAxes,
+         color='#56c96e', fontsize=8, ha='right', va='bottom')
+ax1.text(0.98, 0.94, f'Slice {sl_late}\\n(last acquired)', transform=ax1.transAxes,
+         color='#ff9800', fontsize=8, ha='right', va='top')
+
+# Right: regressor comparison
+ax2 = fig.add_subplot(gs[1])
+t   = ft_ref
+# Zoom to first 80 volumes for clarity
+n   = 80
+ax2.plot(t[:n], reg_early[:n], color='#56c96e', lw=1.8, label=f'Slice {sl_early} (early, t={t_acq[sl_early]*1000:.0f} ms)')
+ax2.plot(t[:n], reg_late[:n],  color='#ff9800', lw=1.8, label=f'Slice {sl_late}  (late, t={t_acq[sl_late]*1000:.0f} ms)', ls='--')
+ax2.plot(t[:n], reg_ref[:n],   color='#aaa',    lw=1.2, label='After correction (aligned to t=0)', ls=':')
+ax2.set_facecolor('#1a1a1a')
+ax2.set_xlabel('Time (s)', color='white', fontsize=10)
+ax2.set_ylabel('Predicted BOLD', color='white', fontsize=10)
+ax2.set_title(f'HRF-convolved language regressor\\n(delay between extremes: {delay_ms:.0f} ms)', color='white', fontsize=11)
+ax2.legend(facecolor='#1a1a1a', labelcolor='white', fontsize=9, edgecolor='#333', loc='upper right')
+ax2.tick_params(colors='white')
+for sp in ax2.spines.values(): sp.set_edgecolor('#333')
+
+fig.tight_layout()
+buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=110,bbox_inches='tight',facecolor='#111')
+buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+`;
+
+$('btn-stc').addEventListener('click', async()=>{
+  if (!py || !precomp) return;
+  showWait('out-stc','Computing slice timing…');
+  py.globals.set('_stc_order', $('stc-order').value);
+  py.globals.set('_ev_json', JSON.stringify(precomp.events));
+  try { showImg('out-stc', await py.runPythonAsync(STC_PY)); stcDone=true; updateTabLocks(); }
+  catch(e) { showErr('out-stc', e.message); }
+});
+
+// ── Stage 3: Smoothing ────────────────────────────────────────────────────────
+const SMOOTH_PY=`
+import numpy as np, json
+from scipy.ndimage import gaussian_filter
+import matplotlib.pyplot as plt
+import io, base64
+
+data    = np.array(json.loads(_slice_json))
+fwhm    = float(_fwhm)
+vox_mm  = 4.5
+sigma   = (fwhm/vox_mm)/(2*(2*np.log(2))**0.5) if fwhm>0 else 0
+smoothed= gaussian_filter(data,sigma=sigma)
+bar_mm  = 20; bar_vox = bar_mm/vox_mm
+
+fig,axes=plt.subplots(1,2,figsize=(9,4.5),facecolor='#111')
+for ax,img,title in[(axes[0],data,'Before smoothing'),(axes[1],smoothed,f'After smoothing  (FWHM = {fwhm:.0f} mm)')]:
+    ax.imshow(img.T,cmap='gray',origin='lower',aspect='equal',vmin=0,vmax=1)
+    ax.set_title(title,color='white',fontsize=12,pad=8); ax.axis('off')
+    # Scale bar
+    x0,y0=2.0,2.0
+    ax.plot([x0,x0+bar_vox],[y0,y0],'w-',lw=3,solid_capstyle='round',
+            transform=ax.transData)
+    ax.text(x0+bar_vox/2,y0+1.8,f'{bar_mm} mm',color='white',ha='center',
+            va='bottom',fontsize=9,fontweight='bold',transform=ax.transData)
+fig.tight_layout()
+buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=120,bbox_inches='tight',facecolor='#111')
+buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+`;
+
+$('btn-smooth').addEventListener('click',async()=>{
+  if (!py || !precomp) { showErr('out-smooth','Not ready — wait for Python and ensure data is loaded.'); return; }
+  showWait('out-smooth','Applying smoothing…');
+  try {
+    py.globals.set('_slice_json',JSON.stringify(precomp.mean_slice.data));
+    py.globals.set('_fwhm',$('smooth-fwhm').value);
+    showImg('out-smooth',await py.runPythonAsync(SMOOTH_PY));
+    smoothDone=true; updateTabLocks();
+  } catch(e) { showErr('out-smooth',e.message); }
+});
+
+// ── Stage 4: Normalisation ────────────────────────────────────────────────────
+function showNorm(which) {
+  $('btn-nb').className='bg'+(which==='before'?' active':'');
+  $('btn-na').className='bg'+(which==='after'?' active':'');
+  if (!precomp) return;
+  showImg('out-norm',which==='before'?precomp.norm_before:precomp.norm_after);
+  if (!normViewed) { normViewed=true; updateTabLocks(); }
+}
+
+// ── Stage 5: GLM ─────────────────────────────────────────────────────────────
+const DM_PREVIEW=`
+import numpy as np, pandas as pd, json
+import matplotlib.pyplot as plt, matplotlib.gridspec as gridspec
+from nilearn.glm.first_level import make_first_level_design_matrix
+import io, base64
+
+tr       = 1.5
+n_vols   = 229
+events   = pd.DataFrame(json.loads(_ev_json))
+frame_t  = np.arange(n_vols) * tr
+hrf_mdl  = _hrf_model
+hp_secs  = float(_hp_secs)
+
+dm = make_first_level_design_matrix(
+    frame_t, events,
+    hrf_model=hrf_mdl,
+    drift_model='cosine',
+    high_pass=1.0/hp_secs
+)
+
+fig = plt.figure(figsize=(11, 5), facecolor='#111')
+gs  = gridspec.GridSpec(1, 2, width_ratios=[2, 1], wspace=0.3, figure=fig)
+
+# Left: HRF-convolved regressors over time (condition columns only)
+ax1 = fig.add_subplot(gs[0])
+palette = ['#4a9eff','#ff9800','#56c96e','#e06060','#aa88ff']
+skip = ('drift_','cosine_','constant','sin ','cos ')
+cond_cols = [c for c in dm.columns if not any(c.startswith(s) for s in skip)]
+for i,col in enumerate(cond_cols):
+    ax1.plot(frame_t, dm[col].values, color=palette[i%len(palette)], lw=1.8, label=col)
+ax1.set_facecolor('#1a1a1a')
+ax1.set_xlabel('Time (s)', color='white', fontsize=10)
+ax1.set_ylabel('Predicted BOLD (a.u.)', color='white', fontsize=10)
+ax1.set_title(f'HRF-convolved regressors  ·  {hrf_mdl}  ·  HP {hp_secs:.0f} s', color='white', fontsize=11)
+ax1.legend(facecolor='#1a1a1a', labelcolor='white', fontsize=10, edgecolor='#333')
+ax1.tick_params(colors='white')
+for sp in ax1.spines.values(): sp.set_edgecolor('#333')
+ax1.axhline(0, color='#333', lw=0.8)
+
+# Right: Full design matrix image
+ax2 = fig.add_subplot(gs[1])
+dm_v = dm.values
+lim  = max(abs(dm_v).max()*0.8, 0.01)
+im   = ax2.imshow(dm_v, aspect='auto', cmap='RdBu_r', vmin=-lim, vmax=lim)
+ax2.set_xticks(range(len(dm.columns)))
+ax2.set_xticklabels(dm.columns, rotation=55, ha='right', color='white', fontsize=7)
+tks  = [0, dm_v.shape[0]//2, dm_v.shape[0]-1]
+ax2.set_yticks(tks); ax2.set_yticklabels(['vol 0','mid','last'], color='white', fontsize=8)
+ax2.set_ylabel('Volume', color='white', fontsize=9)
+ax2.set_title('Design matrix', color='white', fontsize=11, pad=8)
+ax2.tick_params(colors='white')
+for sp in ax2.spines.values(): sp.set_edgecolor('#333')
+ax2.set_facecolor('#1a1a1a')
+cb=plt.colorbar(im, ax=ax2, shrink=0.6, pad=0.02)
+cb.ax.tick_params(colors='white', labelsize=7)
+
+fig.tight_layout()
+buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=110,bbox_inches='tight',facecolor='#111')
+buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+`;
+
+$('btn-dm').addEventListener('click', async()=>{
+  if (!py) { showErr('out-dm','Python not ready yet.'); return; }
+  const ev=getEventsFromTable();
+  if(ev.onset.length<2){showErr('out-dm','Add at least 2 trials before building the design matrix.');return;}
+  drawEventsFromTable();
+  showWait('out-dm','Building design matrix…');
+  py.globals.set('_ev_json',    JSON.stringify(ev));
+  py.globals.set('_hrf_model',  $('hrf-model').value);
+  py.globals.set('_hp_secs',    $('hp-secs').value);
+  try { showImg('out-dm', await py.runPythonAsync(DM_PREVIEW)); dmDone=true; updateTabLocks(); }
+  catch(e) { showErr('out-dm', e.message); }
+});
+
+const GLM_FIT=`
+import numpy as np, nibabel as nib, pandas as pd, json
+from nilearn.glm.first_level import FirstLevelModel
+from nilearn.image import smooth_img, mean_img
+
+_bold      = nib.load('/tmp/bold.nii.gz')
+_events    = pd.DataFrame(json.loads(_ev_json))
+_confs     = pd.DataFrame(json.loads(_cf_json))
+_smoothed  = smooth_img(_bold,fwhm=6)
+_glm       = FirstLevelModel(t_r=1.5,hrf_model=_hrf_model,drift_model='cosine',
+                             high_pass=1.0/float(_hp_secs),noise_model='ar1',standardize=False)
+_glm.fit(_smoothed,_events,confounds=_confs)
+_z_lang    = _glm.compute_contrast('language-string', output_type='z_score').get_fdata()
+_z_str     = _glm.compute_contrast('string-language', output_type='z_score').get_fdata()
+_bg_vol    = mean_img(_bold).get_fdata()
+_dm        = _glm.design_matrices_[0]
+'fitted'
+`;
+
+const GLM_PLOT=`
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import io, base64
+
+def _n(x): return (x-x.min())/(x.max()-x.min()+1e-8)
+
+z_data = _z_lang if _con=='lang' else _z_str
+thresh = float(_zt)
+sl0    = max(0,min(int(_sl0),z_data.shape[2]-9))
+slices = np.linspace(sl0,sl0+28,9,dtype=int)
+slices = np.clip(slices,0,z_data.shape[2]-1)
+
+fig = plt.figure(figsize=(13,7),facecolor='#111')
+gs  = gridspec.GridSpec(1,2,width_ratios=[1,2.2],wspace=0.05,figure=fig)
+
+# Design matrix
+ax_dm = fig.add_subplot(gs[0])
+dm_v  = _dm.values
+lim   = max(abs(dm_v).max()*0.8,0.01)
+im    = ax_dm.imshow(dm_v,aspect='auto',cmap='RdBu_r',vmin=-lim,vmax=lim)
+ax_dm.set_xticks(range(len(_dm.columns)))
+ax_dm.set_xticklabels(_dm.columns,rotation=55,ha='right',color='white',fontsize=6.5)
+tks=[0,dm_v.shape[0]//2,dm_v.shape[0]-1]
+ax_dm.set_yticks(tks); ax_dm.set_yticklabels(['vol 0','mid','last'],color='white',fontsize=8)
+ax_dm.set_ylabel('Volume',color='white',fontsize=9)
+ax_dm.set_title('Design matrix',color='white',fontsize=11,pad=8)
+ax_dm.tick_params(colors='white')
+for sp in ax_dm.spines.values(): sp.set_edgecolor('#333')
+ax_dm.set_facecolor('#1a1a1a')
+cb=plt.colorbar(im,ax=ax_dm,shrink=0.6,pad=0.02)
+cb.ax.tick_params(colors='white',labelsize=7)
+
+# 3×3 activation grid
+gs2 = gridspec.GridSpecFromSubplotSpec(3,3,subplot_spec=gs[1],hspace=0.04,wspace=0.04)
+lbl = 'Language > strings' if _con=='lang' else 'Strings > language'
+for i,sl_z in enumerate(slices):
+    ax = fig.add_subplot(gs2[i//3,i%3])
+    bg = _n(_bg_vol[:,:,sl_z])
+    zs = z_data[:,:,sl_z]
+    ax.imshow(bg.T,cmap='gray',origin='lower',aspect='equal')
+    ax.imshow(np.where(zs>thresh,zs,np.nan).T,cmap='hot',origin='lower',
+              aspect='equal',alpha=0.85,vmin=thresh,vmax=8)
+    ax.imshow(np.where(zs<-thresh,zs,np.nan).T,cmap='cool_r',origin='lower',
+              aspect='equal',alpha=0.85,vmin=-8,vmax=-thresh)
+    ax.set_title(f'z={sl_z}',color='#aaa',fontsize=8,pad=3)
+    ax.axis('off')
+
+fig.suptitle(f'Activation map — {lbl}  ·  |z| > {thresh}',
+             color='white',fontsize=12,y=1.01)
+buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=110,bbox_inches='tight',facecolor='#111')
+buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+`;
+
+$('btn-glm').addEventListener('click',async()=>{
+  if (!py||!fileReady) return;
+  $('btn-glm').disabled=true;
+  showWait('out-glm','Fitting GLM — about 5 seconds…');
+  const _ev=getEventsFromTable(); const _useEv=_ev.onset.length>=2?_ev:precomp.events;
+  py.globals.set('_ev_json',    JSON.stringify(_useEv));
+  py.globals.set('_cf_json',    JSON.stringify(precomp.confounds));
+  py.globals.set('_hrf_model',  $('hrf-model').value);
+  py.globals.set('_hp_secs',    $('hp-secs').value);
+  try {
+    await py.runPythonAsync(GLM_FIT);
+    glmFitted=true;
+    await plotGlm();
+    $('rethresh-row').style.display='block';
+    $('btn-glm').textContent='Re-run GLM';
+  } catch(e) { showErr('out-glm',e.message); }
+  $('btn-glm').disabled=false;
+});
+
+$('btn-rt').addEventListener('click',async()=>{
+  if (!glmFitted) return;
+  showWait('out-glm','Updating…');
+  await plotGlm();
+});
+
+async function plotGlm() {
+  py.globals.set('_con',  document.querySelector('[name=con]:checked').value);
+  py.globals.set('_zt',   $('z-thresh').value);
+  py.globals.set('_sl0',  $('sl-start').value);
+  try { showImg('out-glm',await py.runPythonAsync(GLM_PLOT)); }
+  catch(e) { showErr('out-glm',e.message); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+$('need-file').style.display='block';
+updateTabLocks();
+</script>
+</body>
+</html>
