@@ -670,7 +670,7 @@ function switchTab(n) {
   await _py.loadPackage(['numpy','scipy','matplotlib','pandas','micropip','scikit-learn']);
   await _py.runPythonAsync(`
 import micropip
-await micropip.install(['nibabel','nilearn'])
+await micropip.install(['nibabel','nilearn==0.10.4'])
 `);
   await _py.runPythonAsync(`
 import numpy as np, nibabel as nib, pandas as pd
