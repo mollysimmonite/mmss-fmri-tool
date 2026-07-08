@@ -36,7 +36,7 @@ nav button.tb:disabled:hover{color:#2d2d2d}
 /* ── Main scroll area ──────────────────────────────────────── */
 main{flex:1;overflow-y:auto}
 .tab{display:none;max-width:860px;margin:0 auto;padding:22px 18px 60px}
-#tab-0{max-width:1120px}
+#tab-1{max-width:1120px}
 .tab.active{display:block}
 
 /* ── Upload ────────────────────────────────────────────────── */
@@ -157,19 +157,78 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
 </header>
 
 <nav id="tab-nav">
-  <button class="tb active" onclick="switchTab(0)">Upload &amp; View</button>
-  <button class="tb" onclick="switchTab(1)">① Motion</button>
-  <button class="tb" onclick="switchTab(2)">② Slice timing</button>
-  <button class="tb" onclick="switchTab(3)">③ Smoothing</button>
-  <button class="tb" onclick="switchTab(4)">④ Normalisation</button>
-  <button class="tb" onclick="switchTab(5)">⑤ Design matrix</button>
-  <button class="tb" onclick="switchTab(6)">⑥ Activation map</button>
+  <button class="tb active" onclick="switchTab(0)">Try the task</button>
+  <button class="tb" onclick="switchTab(1)">Upload &amp; View</button>
+  <button class="tb" onclick="switchTab(2)">① Motion</button>
+  <button class="tb" onclick="switchTab(3)">② Slice timing</button>
+  <button class="tb" onclick="switchTab(4)">③ Smoothing</button>
+  <button class="tb" onclick="switchTab(5)">④ Normalisation</button>
+  <button class="tb" onclick="switchTab(6)">⑤ Design matrix</button>
+  <button class="tb" onclick="switchTab(7)">⑥ Activation map</button>
 </nav>
 
 <main>
 
-<!-- ══ Tab 0: Upload & View ══════════════════════════════════════════════════ -->
+<!-- ══ Tab 0: Try the task ═══════════════════════════════════════════════════ -->
 <div class="tab active" id="tab-0">
+  <div style="max-width:660px;margin:0 auto;padding:48px 18px 60px">
+
+    <!-- Instructions -->
+    <div id="task-instruct">
+      <h2 style="color:#fff;font-size:22px;font-weight:600;margin-bottom:16px">Experience the task</h2>
+      <p style="color:#bbb;margin-bottom:12px;font-size:15px">
+        You're about to do a short version of the exact task the participant performed inside the fMRI scanner.
+      </p>
+      <p style="color:#bbb;margin-bottom:12px;font-size:15px">
+        You'll see either a <strong style="color:var(--accent)">real English sentence</strong> or a
+        <strong style="color:var(--orange)">string of random letters</strong>.
+        Press <kbd style="background:#2a2a2a;padding:2px 7px;border-radius:4px;font-size:13px">F</kbd> if it's a sentence,
+        <kbd style="background:#2a2a2a;padding:2px 7px;border-radius:4px;font-size:13px">J</kbd> if it's strings —
+        as quickly and accurately as you can.
+      </p>
+      <p style="color:#bbb;margin-bottom:8px;font-size:15px">The task takes about one minute. Complete it to unlock the brain data.</p>
+      <div style="background:#13131e;border:1px solid #334;border-radius:8px;padding:14px 18px;margin:20px 0;font-size:14px;color:#888;line-height:1.9">
+        <div><span style="color:var(--accent);font-weight:600">F — Sentence:</span> &nbsp; "The dog chased the ball across the field"</div>
+        <div><span style="color:var(--orange);font-weight:600">J — Strings: &nbsp;</span> &nbsp; "FKRMP &nbsp; VTJBQ"</div>
+      </div>
+      <button onclick="startTask()" style="margin-top:8px;font-size:15px;padding:10px 28px">Start task</button>
+    </div>
+
+    <!-- Running -->
+    <div id="task-run" style="display:none;text-align:center">
+      <div id="task-cond-lbl" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;height:18px;margin-bottom:24px"></div>
+      <div id="task-stim" style="font-size:28px;color:#fff;min-height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:36px;letter-spacing:.04em;line-height:1.4"></div>
+      <div style="height:3px;background:#222;border-radius:2px;margin-bottom:36px">
+        <div id="task-prog" style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .15s linear"></div>
+      </div>
+      <div id="task-resp-btns" style="display:flex;justify-content:center;gap:20px;visibility:hidden">
+        <button onclick="taskResponse('language')" style="min-width:150px;font-size:15px;background:#4a9eff">
+          Sentence &nbsp;<kbd style="font-size:11px;background:rgba(0,0,0,.25);padding:1px 5px;border-radius:3px">F</kbd>
+        </button>
+        <button onclick="taskResponse('string')" style="min-width:150px;font-size:15px;background:#ff9800">
+          Strings &nbsp;<kbd style="font-size:11px;background:rgba(0,0,0,.25);padding:1px 5px;border-radius:3px">J</kbd>
+        </button>
+      </div>
+      <div id="task-fb" style="height:28px;margin-top:18px;font-size:16px;font-weight:600"></div>
+    </div>
+
+    <!-- Done -->
+    <div id="task-complete" style="display:none;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">&#10003;</div>
+      <h2 style="color:#fff;font-size:20px;font-weight:600;margin-bottom:14px">Task complete!</h2>
+      <div id="task-score" style="color:#bbb;font-size:15px;margin-bottom:20px"></div>
+      <p style="color:#555;font-size:13px;margin-bottom:28px;line-height:1.7">
+        The participant in the scanner did this for 5¾ minutes — 229 brain volumes' worth.<br>
+        The next tabs show how their brain responses were preprocessed and modelled.
+      </p>
+      <button onclick="switchTab(1)" style="font-size:15px;padding:10px 28px">View the brain data &#8594;</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ Tab 1: Upload & View ══════════════════════════════════════════════════ -->
+<div class="tab" id="tab-1">
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;max-width:1100px;margin-left:auto;margin-right:auto">
 
@@ -268,7 +327,7 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
 </div>
 
 <!-- ══ Tab 1: Motion ════════════════════════════════════════════════════════ -->
-<div class="tab" id="tab-1">
+<div class="tab" id="tab-2">
   <div class="stage">
     <div class="shdr"><div class="snum">1</div><h2>Motion correction</h2></div>
     <div class="sbody">
@@ -287,13 +346,17 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
         threshold and see how many volumes would be discarded for excessive movement.</p>
       </div>
       <div class="ctrls">
+        <button id="btn-motion" disabled>Plot motion</button>
+      </div>
+      <div class="ctrls" id="scrub-ctrls" style="display:none">
         <div class="cg">
           <label>Scrubbing threshold</label>
           <input type="number" id="fd-thresh" value="0.5" min="0.1" max="2.0" step="0.1">
           <div class="hint">mm — try 0.2 or 1.5</div>
         </div>
-        <button id="btn-motion" disabled>Plot motion</button>
+        <button id="btn-scrub">Change scrubbing</button>
       </div>
+      <div id="motion-summary" style="display:none;background:#1a1a1a;border:1px solid #272727;border-radius:8px;padding:11px 16px;margin-bottom:12px;font-size:14px;color:#bbb"></div>
       <div class="out" id="out-motion"><div class="ph">Click "Plot motion" to see the head movement trace.</div></div>
       <details class="code"><summary>Python code</summary><pre><code><span class="k">import</span> pandas <span class="k">as</span> pd
 <span class="k">import</span> numpy <span class="k">as</span> np
@@ -313,7 +376,7 @@ bad = FD[FD > <span class="n">0.5</span>]
 </div>
 
 <!-- ══ Tab 2: Slice Timing ════════════════════════════════════════════════════ -->
-<div class="tab" id="tab-2">
+<div class="tab" id="tab-3">
   <div class="stage">
     <div class="shdr"><div class="snum">2</div><h2>Slice timing correction</h2></div>
     <div class="sbody">
@@ -370,7 +433,7 @@ ts_corrected = f(t_corr)</code></pre></details>
 </div>
 
 <!-- ══ Tab 3: Smoothing ══════════════════════════════════════════════════════ -->
-<div class="tab" id="tab-3">
+<div class="tab" id="tab-4">
   <div class="stage">
     <div class="shdr"><div class="snum">3</div><h2>Spatial smoothing</h2></div>
     <div class="sbody">
@@ -409,7 +472,7 @@ smoothed_img = smooth_img(img, fwhm=<span class="n">6</span>)  <span class="c">#
 </div>
 
 <!-- ══ Tab 4: Normalisation ══════════════════════════════════════════════════ -->
-<div class="tab" id="tab-4">
+<div class="tab" id="tab-5">
   <div class="stage">
     <div class="shdr"><div class="snum">4</div><h2>Spatial normalisation</h2></div>
     <div class="sbody">
@@ -447,7 +510,7 @@ bold_mni = nib.<span class="f">load</span>(<span class="s">'sub-01_task-language
 </div>
 
 <!-- ══ Tab 5: Design matrix ═══════════════════════════════════════════════════ -->
-<div class="tab" id="tab-5">
+<div class="tab" id="tab-6">
   <div class="stage">
     <div class="shdr"><div class="snum">5</div><h2>Building the design matrix</h2></div>
     <div class="sbody">
@@ -548,7 +611,7 @@ design_matrix = <span class="f">make_first_level_design_matrix</span>(
 </div>
 
 <!-- ══ Tab 6: Activation map ══════════════════════════════════════════════════ -->
-<div class="tab" id="tab-6">
+<div class="tab" id="tab-7">
   <div class="stage">
     <div class="shdr"><div class="snum">6</div><h2>First-level GLM — activation map</h2></div>
     <div class="sbody">
@@ -615,17 +678,18 @@ z_map = glm.<span class="f">compute_contrast</span>(<span class="s">'language-st
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 let py = null, precomp = null, fileReady = false, glmFitted = false;
-let motionDone = false, viewerLoaded = false;
+let taskDone = false, motionDone = false, viewerLoaded = false;
 let anatReady = false, stcDone = false, smoothDone = false, normViewed = false, dmDone = false;
 
 function tabUnlocked(n) {
   if (n===0) return true;
-  if (n===1) return fileReady && anatReady;
-  if (n===2) return motionDone;
-  if (n===3) return stcDone;
-  if (n===4) return smoothDone;
-  if (n===5) return normViewed;
-  if (n===6) return dmDone;
+  if (n===1) return taskDone;
+  if (n===2) return fileReady && anatReady;
+  if (n===3) return motionDone;
+  if (n===4) return stcDone;
+  if (n===5) return smoothDone;
+  if (n===6) return normViewed;
+  if (n===7) return dmDone;
   return false;
 }
 function updateTabLocks() {
@@ -652,9 +716,8 @@ function switchTab(n) {
   document.querySelectorAll('.tb').forEach((b,i) => b.className='tb'+(i===n?' active':''));
   updateTabLocks();
   activeTab = n;
-  if (n===1 && py && !motionDone) runMotion();
-  if (n===4 && precomp) showNorm('before');
-  if (n===6) checkGlm();
+  if (n===5 && precomp) showNorm('before');
+  if (n===7) checkGlm();
 }
 
 // ── Precomputed data ──────────────────────────────────────────────────────────
@@ -662,7 +725,7 @@ function switchTab(n) {
   try {
     precomp = await fetch('precomputed.json').then(r=>r.json());
     if (activeTab===1 && py && !motionDone) runMotion();
-    if (activeTab===4) showNorm('before');
+    if (activeTab===5) showNorm('before');
   } catch(e) { console.error('precomputed.json failed',e); }
 })();
 
@@ -697,7 +760,6 @@ import io, base64, json
   $('btn-dm').disabled=false;
   checkGlm();
   checkViewer();
-  if (activeTab===1 && !motionDone) runMotion();
 })().catch(e=>{setDot('py-dot','error');$('py-lbl').textContent='Python failed';console.error(e);});
 
 // ── File upload ───────────────────────────────────────────────────────────────
@@ -1038,7 +1100,8 @@ for sp in ax3.spines.values(): sp.set_edgecolor('#333')
 
 fig.tight_layout()
 buf=io.BytesIO(); fig.savefig(buf,format='png',dpi=110,bbox_inches='tight',facecolor='#111')
-buf.seek(0); _result=base64.b64encode(buf.read()).decode(); plt.close(); _result
+buf.seek(0); _img=base64.b64encode(buf.read()).decode(); plt.close()
+f'{_img}|{len(bad)}|{len(FD)}'
 `;
 
 async function runMotion() {
@@ -1047,10 +1110,21 @@ async function runMotion() {
   showWait('out-motion','Plotting motion parameters…');
   py.globals.set('_conf_json',JSON.stringify(precomp.confounds));
   py.globals.set('_fd_thr',$('fd-thresh').value);
-  try { showImg('out-motion',await py.runPythonAsync(MOTION_PY)); motionDone=true; updateTabLocks(); }
-  catch(e) { showErr('out-motion',e.message); }
+  try {
+    const res = await py.runPythonAsync(MOTION_PY);
+    const [imgB64, flaggedStr, totalStr] = res.split('|');
+    showImg('out-motion', imgB64);
+    const flagged=parseInt(flaggedStr), total=parseInt(totalStr);
+    const pct=(flagged/total*100).toFixed(1);
+    const col=flagged>total*0.1?'var(--red)':'var(--green)';
+    $('motion-summary').innerHTML=`<strong style="color:${col}">${flagged} of ${total} volumes flagged (${pct}%)</strong> at this scrubbing threshold.`;
+    $('motion-summary').style.display='block';
+    motionDone=true; updateTabLocks();
+    $('scrub-ctrls').style.display='';
+  } catch(e) { showErr('out-motion',e.message); }
 }
 $('btn-motion').addEventListener('click',runMotion);
+$('btn-scrub').addEventListener('click',runMotion);
 
 // ── Stage 2: Slice timing correction ─────────────────────────────────────────
 const STC_PY=`
@@ -1238,8 +1312,8 @@ ax1.axhline(0, color='#333', lw=0.8)
 # Right: Full design matrix image
 ax2 = fig.add_subplot(gs[1])
 dm_v = dm.values
-lim  = max(abs(dm_v).max()*0.8, 0.01)
-im   = ax2.imshow(dm_v, aspect='auto', cmap='RdBu_r', vmin=-lim, vmax=lim)
+dm_z = (dm_v - dm_v.mean(axis=0)) / (dm_v.std(axis=0) + 1e-8)
+im   = ax2.imshow(dm_z, aspect='auto', cmap='RdBu_r', vmin=-2, vmax=2)
 ax2.set_xticks(range(len(dm.columns)))
 ax2.set_xticklabels(dm.columns, rotation=55, ha='right', color='white', fontsize=7)
 tks  = [0, dm_v.shape[0]//2, dm_v.shape[0]-1]
@@ -1309,8 +1383,8 @@ gs  = gridspec.GridSpec(1,2,width_ratios=[1,2.2],wspace=0.05,figure=fig)
 # Design matrix
 ax_dm = fig.add_subplot(gs[0])
 dm_v  = _dm.values
-lim   = max(abs(dm_v).max()*0.8,0.01)
-im    = ax_dm.imshow(dm_v,aspect='auto',cmap='RdBu_r',vmin=-lim,vmax=lim)
+dm_z  = (dm_v - dm_v.mean(axis=0)) / (dm_v.std(axis=0) + 1e-8)
+im    = ax_dm.imshow(dm_z,aspect='auto',cmap='RdBu_r',vmin=-2,vmax=2)
 ax_dm.set_xticks(range(len(_dm.columns)))
 ax_dm.set_xticklabels(_dm.columns,rotation=55,ha='right',color='white',fontsize=6.5)
 tks=[0,dm_v.shape[0]//2,dm_v.shape[0]-1]
@@ -1376,6 +1450,115 @@ async function plotGlm() {
   try { showImg('out-glm',await py.runPythonAsync(GLM_PLOT)); }
   catch(e) { showErr('out-glm',e.message); }
 }
+
+// ── Task (Tab 0) ──────────────────────────────────────────────────────────────
+let taskResponded = false, taskCurrentType = null, taskBlockIdx = 0;
+let taskCorrect = 0, taskTotal = 0, taskStimTimer = null;
+let taskStimUsed = {language:0, string:0};
+
+const TASK_STIMS = {
+  language: [
+    'The girl carried her books to school',
+    'Rain fell softly on the empty street',
+    'He placed the key on the kitchen table',
+    'The children laughed at the funny clown',
+    'She poured coffee into her favourite mug',
+    'The dog chased the ball across the field',
+    'Clouds gathered slowly over the mountains',
+    'They arrived just before the concert started',
+  ],
+  string: [
+    'FKRMP  VTJBQ',
+    'XLZNP  DGKCR',
+    'BRMFT  WQJPV',
+    'DCNJZ  HWQTK',
+    'PRGFS  XLMKV',
+    'KWNBT  FJZRC',
+    'MVTPQ  RFLNK',
+    'ZHJCX  BRKDP',
+  ]
+};
+
+const TASK_BLOCKS = [
+  {type:'rest',     dur:3000},
+  {type:'language', dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'string',   dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'language', dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'string',   dur:7000},
+  {type:'rest',     dur:3000},
+];
+const STIM_DUR = 1750;
+const TOTAL_DUR = TASK_BLOCKS.reduce((s,b)=>s+b.dur, 0);
+
+function startTask() {
+  $('task-instruct').style.display='none';
+  $('task-run').style.display='block';
+  taskBlockIdx=0; taskCorrect=0; taskTotal=0;
+  taskStimUsed={language:0,string:0};
+  runTaskBlock(0);
+}
+
+function runTaskBlock(elapsed) {
+  if (taskBlockIdx >= TASK_BLOCKS.length) { endTask(); return; }
+  const block = TASK_BLOCKS[taskBlockIdx];
+  taskCurrentType = block.type;
+  updateTaskProgress(elapsed);
+  if (block.type==='rest') {
+    $('task-cond-lbl').textContent='';
+    $('task-stim').textContent='+';
+    $('task-resp-btns').style.visibility='hidden';
+    $('task-fb').textContent='';
+    taskStimTimer=setTimeout(()=>{ taskBlockIdx++; runTaskBlock(elapsed+block.dur); }, block.dur);
+  } else {
+    $('task-cond-lbl').textContent = block.type==='language' ? 'Language' : 'Strings';
+    $('task-cond-lbl').style.color  = block.type==='language' ? 'var(--accent)' : 'var(--orange)';
+    $('task-resp-btns').style.visibility='visible';
+    runStim(block, 0, elapsed);
+  }
+}
+
+function runStim(block, stimElapsed, blockElapsed) {
+  const list = TASK_STIMS[block.type];
+  $('task-stim').textContent = list[taskStimUsed[block.type]++ % list.length];
+  $('task-fb').textContent='';
+  taskResponded=false;
+  updateTaskProgress(blockElapsed+stimElapsed);
+  taskStimTimer=setTimeout(()=>{
+    const next=stimElapsed+STIM_DUR;
+    if (next>=block.dur) { taskBlockIdx++; runTaskBlock(blockElapsed+block.dur); }
+    else { runStim(block, next, blockElapsed); }
+  }, STIM_DUR);
+}
+
+function updateTaskProgress(elapsed) {
+  $('task-prog').style.width=Math.min(100, elapsed/TOTAL_DUR*100)+'%';
+}
+
+function taskResponse(response) {
+  if (taskCurrentType==='rest'||taskResponded) return;
+  taskResponded=true; taskTotal++;
+  const correct=response===taskCurrentType;
+  if (correct) taskCorrect++;
+  $('task-fb').textContent=correct?'✓':'✗';
+  $('task-fb').style.color=correct?'var(--green)':'var(--red)';
+}
+
+function endTask() {
+  $('task-run').style.display='none';
+  $('task-complete').style.display='block';
+  const pct=taskTotal>0?Math.round(taskCorrect/taskTotal*100):0;
+  $('task-score').innerHTML=`You responded to <strong>${taskTotal}</strong> stimuli with <strong style="color:var(--green)">${pct}% accuracy</strong>.`;
+  updateTaskProgress(TOTAL_DUR);
+  taskDone=true; updateTabLocks();
+}
+
+document.addEventListener('keydown', e=>{
+  if (e.key==='f'||e.key==='F') taskResponse('language');
+  if (e.key==='j'||e.key==='J') taskResponse('string');
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 $('need-file').style.display='block';
