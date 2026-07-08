@@ -667,7 +667,7 @@ function switchTab(n) {
   await new Promise(r=>s.onload=r);
   $('py-lbl').textContent='Loading packages…';
   const _py=await loadPyodide();
-  await _py.loadPackage(['numpy','scipy','matplotlib','pandas','micropip']);
+  await _py.loadPackage(['numpy','scipy','matplotlib','pandas','micropip','scikit-learn']);
   await _py.runPythonAsync(`
 import micropip
 await micropip.install(['nibabel','nilearn'])
