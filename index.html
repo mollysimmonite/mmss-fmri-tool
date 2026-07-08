@@ -186,7 +186,7 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
         <kbd style="background:#2a2a2a;padding:2px 7px;border-radius:4px;font-size:13px">J</kbd> if it's strings —
         as quickly and accurately as you can.
       </p>
-      <p style="color:#bbb;margin-bottom:8px;font-size:15px">The task takes about one minute. Complete it to unlock the brain data.</p>
+      <p style="color:#bbb;margin-bottom:8px;font-size:15px">The task takes about two minutes. Complete it to unlock the brain data.</p>
       <div style="background:#13131e;border:1px solid #334;border-radius:8px;padding:14px 18px;margin:20px 0;font-size:14px;color:#888;line-height:1.9">
         <div><span style="color:var(--accent);font-weight:600">F — Sentence:</span> &nbsp; "The dog chased the ball across the field"</div>
         <div><span style="color:var(--orange);font-weight:600">J — Strings: &nbsp;</span> &nbsp; "FKRMP &nbsp; VTJBQ"</div>
@@ -1480,6 +1480,18 @@ const TASK_STIMS = {
 
 const TASK_BLOCKS = [
   {type:'rest',     dur:3000},
+  {type:'language', dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'string',   dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'language', dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'string',   dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'language', dur:7000},
+  {type:'rest',     dur:5000},
+  {type:'string',   dur:7000},
+  {type:'rest',     dur:5000},
   {type:'language', dur:7000},
   {type:'rest',     dur:5000},
   {type:'string',   dur:7000},
