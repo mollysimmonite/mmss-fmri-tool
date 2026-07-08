@@ -211,7 +211,7 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
 
       <!-- Functional panel -->
       <div class="vp">
-        <div class="vp-label">Functional (BOLD mean)</div>
+        <div class="vp-label">Functional (BOLD)</div>
         <div class="vp-orients">
           <button class="bg active" id="vob-func-axial"    onclick="setOrientPanel('func','axial')">Axial</button>
           <button class="bg"        id="vob-func-coronal"  onclick="setOrientPanel('func','coronal')">Coronal</button>
@@ -226,6 +226,13 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
           <input type="range" id="vslider-func" min="0" max="42" value="21"
                  oninput="onSlicePanel('func',this.value)">
           <span id="vslnum-func" style="width:28px">21</span>
+        </div>
+        <div class="slice-ctrl" style="margin-top:6px">
+          <span>Volume</span>
+          <button class="bg active" id="vvol-mean-btn" onclick="setFuncVolMean()" style="font-size:11px;padding:2px 8px">Mean</button>
+          <input type="range" id="vvol-func" min="0" max="228" value="0"
+                 oninput="onVolFunc(parseInt(this.value))">
+          <span id="vvolnum-func" style="width:40px;font-size:12px">0</span>
         </div>
         <div id="vmeta-func" class="vmeta"></div>
       </div>
@@ -772,21 +779,27 @@ base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(
   }
 }
 
-async function checkViewer() {
-  if (!py || !fileReady || viewerLoaded) return;
-  viewerLoaded = true;
-  $('viewer-card').style.display = 'block';
-  setPanelStatus('func', '⏳ Computing mean image…');
-  try {
-    const raw = await py.runPythonAsync(`
+const LOAD_FUNC_VOL_PY = `
 import nibabel as nib, numpy as np, base64
-img = nib.load('/tmp/bold.nii.gz')
-data = img.get_fdata(dtype=np.float32)
-mean_vol = data.mean(axis=3)
-vol_u8 = ((mean_vol - mean_vol.min()) / (mean_vol.max() - mean_vol.min() + 1e-8) * 255).astype(np.uint8)
-zooms = [float(z) for z in img.header.get_zooms()[:3]]
-base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(map(str, mean_vol.shape)) + '|' + ','.join(f'{z:.4f}' for z in zooms)
-`);
+try:
+    _func_arr
+except NameError:
+    _img_f = nib.load('/tmp/bold.nii.gz')
+    _func_arr = _img_f.get_fdata(dtype=np.float32)
+    _func_zooms_v = [float(z) for z in _img_f.header.get_zooms()[:3]]
+    _func_shape3_v = list(_func_arr.shape[:3])
+vol = _func_arr.mean(axis=3) if int(_vol_idx) < 0 else _func_arr[..., int(_vol_idx)]
+vol_u8 = ((vol - vol.min()) / (vol.max() - vol.min() + 1e-8) * 255).astype(np.uint8)
+base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(map(str, _func_shape3_v)) + '|' + ','.join(f'{z:.4f}' for z in _func_zooms_v)
+`;
+
+async function loadFuncVolume(volIdx) {
+  if (!py || !fileReady) return;
+  const label = volIdx < 0 ? 'mean image' : `volume ${volIdx}`;
+  setPanelStatus('func', `⏳ Loading ${label}…`);
+  try {
+    py.globals.set('_vol_idx', volIdx);
+    const raw = await py.runPythonAsync(LOAD_FUNC_VOL_PY);
     const [b64, shapeStr, zoomsStr] = raw.split('|');
     const shape = shapeStr.split(',').map(Number);
     const zooms = zoomsStr ? zoomsStr.split(',').map(Number) : [1,1,1];
@@ -796,10 +809,30 @@ base64.b64encode(vol_u8.flatten(order='C').tobytes()).decode() + '|' + ','.join(
     VP.func.volData = arr;
     VP.func.volShape = shape;
     VP.func.zooms = zooms;
-    setOrientPanel('func', 'axial');
+    setOrientPanel('func', VP.func.orient);
   } catch(e) {
     setPanelStatus('func', `Error: ${e.message}`);
+    console.error('Func volume load error', e);
   }
+}
+
+function setFuncVolMean() {
+  $('vvol-mean-btn').className = 'bg active';
+  $('vvolnum-func').textContent = 'Mean';
+  loadFuncVolume(-1);
+}
+
+function onVolFunc(val) {
+  $('vvol-mean-btn').className = 'bg';
+  $('vvolnum-func').textContent = val;
+  loadFuncVolume(val);
+}
+
+async function checkViewer() {
+  if (!py || !fileReady || viewerLoaded) return;
+  viewerLoaded = true;
+  $('viewer-card').style.display = 'block';
+  await loadFuncVolume(-1);
 }
 
 function checkGlm() {
