@@ -196,7 +196,6 @@ details.code pre{background:#090909;border-top:1px solid #1e1e1e;padding:14px 16
 
     <!-- Running -->
     <div id="task-run" style="display:none;text-align:center">
-      <div id="task-cond-lbl" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;height:18px;margin-bottom:24px"></div>
       <div id="task-stim" style="font-size:28px;color:#fff;min-height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:36px;letter-spacing:.04em;line-height:1.4"></div>
       <div style="height:3px;background:#222;border-radius:2px;margin-bottom:36px">
         <div id="task-prog" style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .15s linear"></div>
@@ -1507,14 +1506,11 @@ function runTaskBlock(elapsed) {
   taskCurrentType = block.type;
   updateTaskProgress(elapsed);
   if (block.type==='rest') {
-    $('task-cond-lbl').textContent='';
     $('task-stim').textContent='+';
     $('task-resp-btns').style.visibility='hidden';
     $('task-fb').textContent='';
     taskStimTimer=setTimeout(()=>{ taskBlockIdx++; runTaskBlock(elapsed+block.dur); }, block.dur);
   } else {
-    $('task-cond-lbl').textContent = block.type==='language' ? 'Language' : 'Strings';
-    $('task-cond-lbl').style.color  = block.type==='language' ? 'var(--accent)' : 'var(--orange)';
     $('task-resp-btns').style.visibility='visible';
     runStim(block, 0, elapsed);
   }
